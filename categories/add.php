@@ -62,8 +62,9 @@ $parentId        = "";
 $description     = "";
 $metaTitle       = "";
 $metaDescription = "";
-$displayOrder    = 0;
-$isActive        = 1;
+
+$displayOrder = 1;
+$isActive     = 1;
 
 $error = "";
 
@@ -76,13 +77,76 @@ $error = "";
 
 $uploadDirectory = __DIR__ . "/../uploads/categories/";
 
-
 if (!is_dir($uploadDirectory)) {
 
     if (!@mkdir($uploadDirectory, 0755, true)) {
         $error = "Unable to create category upload directory.";
     }
 }
+
+
+/*
+|--------------------------------------------------------------------------
+| GET NEXT DISPLAY ORDER
+|--------------------------------------------------------------------------
+|
+| Existing:
+| 1,2,3,4
+|
+| New:
+| 5
+|
+| Empty:
+| 1
+|
+|--------------------------------------------------------------------------
+*/
+
+function getNextDisplayOrder($conn)
+{
+    $nextOrder = 1;
+
+    $sql = "
+        SELECT
+            ISNULL(MAX(DisplayOrder), 0) + 1 AS NextDisplayOrder
+        FROM dbo.Categories
+    ";
+
+    $stmt = sqlsrv_query($conn, $sql);
+
+    if ($stmt !== false) {
+
+        $row = sqlsrv_fetch_array(
+            $stmt,
+            SQLSRV_FETCH_ASSOC
+        );
+
+        if ($row) {
+
+            $nextOrder = (int) (
+                $row["NextDisplayOrder"] ?? 1
+            );
+
+        }
+
+        sqlsrv_free_stmt($stmt);
+    }
+
+    if ($nextOrder < 1) {
+        $nextOrder = 1;
+    }
+
+    return $nextOrder;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| INITIAL DISPLAY ORDER
+|--------------------------------------------------------------------------
+*/
+
+$displayOrder = getNextDisplayOrder($conn);
 
 
 /*
@@ -101,7 +165,10 @@ $parentSql = "
     ORDER BY Name ASC
 ";
 
-$parentStmt = sqlsrv_query($conn, $parentSql);
+$parentStmt = sqlsrv_query(
+    $conn,
+    $parentSql
+);
 
 if ($parentStmt !== false) {
 
@@ -111,6 +178,7 @@ if ($parentStmt !== false) {
             SQLSRV_FETCH_ASSOC
         )
     ) {
+
         $parents[] = $row;
     }
 
@@ -132,11 +200,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     |--------------------------------------------------------------------------
     */
 
-    $name = trim($_POST["name"] ?? "");
+    $name = trim(
+        $_POST["name"] ?? ""
+    );
 
-    $slug = trim($_POST["slug"] ?? "");
+    $slug = trim(
+        $_POST["slug"] ?? ""
+    );
 
-    $parentId = !empty($_POST["parent_category_id"])
+    $parentId = !empty(
+        $_POST["parent_category_id"] ?? ""
+    )
         ? (int) $_POST["parent_category_id"]
         : null;
 
@@ -152,40 +226,37 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $_POST["meta_description"] ?? ""
     );
 
-    $displayOrder = (int) (
-        $_POST["display_order"] ?? 0
-    );
+    /*
+    |--------------------------------------------------------------------------
+    | DISPLAY ORDER
+    |--------------------------------------------------------------------------
+    |
+    | IMPORTANT:
+    | Do NOT trust browser value.
+    | Always calculate from database.
+    |
+    |--------------------------------------------------------------------------
+    */
 
-    $isActive = isset($_POST["is_active"])
+    $displayOrder = getNextDisplayOrder($conn);
+
+    $isActive = isset(
+        $_POST["is_active"]
+    )
         ? 1
         : 0;
 
 
     /*
     |--------------------------------------------------------------------------
-    | VALIDATION
+    | VALIDATION - CATEGORY NAME
     |--------------------------------------------------------------------------
     */
 
     if ($name === "") {
 
-        $error = "Category name is required.";
-
-    }
-
-
-    /*
-    |--------------------------------------------------------------------------
-    | DISPLAY ORDER VALIDATION
-    |--------------------------------------------------------------------------
-    */
-
-    if (
-        $error === "" &&
-        $displayOrder < 0
-    ) {
-
-        $error = "Display order cannot be negative.";
+        $error =
+            "Category name is required.";
 
     }
 
@@ -310,10 +381,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         } else {
 
-            $existingSlug = sqlsrv_fetch_array(
-                $checkSlugStmt,
-                SQLSRV_FETCH_ASSOC
-            );
+            $existingSlug =
+                sqlsrv_fetch_array(
+                    $checkSlugStmt,
+                    SQLSRV_FETCH_ASSOC
+                );
 
             sqlsrv_free_stmt(
                 $checkSlugStmt
@@ -332,7 +404,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     /*
     |--------------------------------------------------------------------------
-    | IMAGE UPLOAD VARIABLES
+    | IMAGE VARIABLES
     |--------------------------------------------------------------------------
     */
 
@@ -349,7 +421,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     if (
         $error === "" &&
         isset($_FILES["category_image"]) &&
-        $_FILES["category_image"]["error"] !== UPLOAD_ERR_NO_FILE
+        $_FILES["category_image"]["error"]
+            !== UPLOAD_ERR_NO_FILE
     ) {
 
         $file = $_FILES["category_image"];
@@ -361,7 +434,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         |--------------------------------------------------------------------------
         */
 
-        if ($file["error"] !== UPLOAD_ERR_OK) {
+        if (
+            $file["error"]
+            !== UPLOAD_ERR_OK
+        ) {
 
             $error =
                 "Unable to upload the category image.";
@@ -405,7 +481,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         /*
         |--------------------------------------------------------------------------
-        | GET IMAGE INFORMATION
+        | IMAGE INFORMATION
         |--------------------------------------------------------------------------
         */
 
@@ -413,12 +489,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         if ($error === "") {
 
-            $imageInformation = @getimagesize(
-                $file["tmp_name"]
-            );
+            $imageInformation =
+                @getimagesize(
+                    $file["tmp_name"]
+                );
 
 
-            if ($imageInformation === false) {
+            if (
+                $imageInformation === false
+            ) {
 
                 $error =
                     "Please upload a valid image file.";
@@ -434,10 +513,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         */
 
         $allowedMimeTypes = [
+
             "image/jpeg",
             "image/png",
             "image/webp",
             "image/gif"
+
         ];
 
 
@@ -464,25 +545,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         $extension = "";
 
-
         if ($error === "") {
 
-            switch ($imageInformation["mime"]) {
+            switch (
+                $imageInformation["mime"]
+            ) {
 
                 case "image/jpeg":
+
                     $extension = "jpg";
+
                     break;
 
                 case "image/png":
+
                     $extension = "png";
+
                     break;
 
                 case "image/webp":
+
                     $extension = "webp";
+
                     break;
 
                 case "image/gif":
+
                     $extension = "gif";
+
                     break;
             }
 
@@ -498,7 +588,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         /*
         |--------------------------------------------------------------------------
-        | CREATE UNIQUE FILE NAME
+        | UNIQUE FILE NAME
         |--------------------------------------------------------------------------
         */
 
@@ -506,9 +596,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             try {
 
-                $randomPart = bin2hex(
-                    random_bytes(6)
-                );
+                $randomPart =
+                    bin2hex(
+                        random_bytes(6)
+                    );
 
             } catch (Throwable $e) {
 
@@ -550,12 +641,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             } else {
 
-                /*
-                |--------------------------------------------------------------------------
-                | DATABASE IMAGE PATH
-                |--------------------------------------------------------------------------
-                */
-
                 $uploadedImagePath =
                     "uploads/categories/" .
                     $uniqueName;
@@ -576,7 +661,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     ) {
 
         $metaTitle =
-            $name . " | GatewayLinen";
+            $name .
+            " | GatewayLinen";
 
     }
 
@@ -606,6 +692,18 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     */
 
     if ($error === "") {
+
+        /*
+        |--------------------------------------------------------------------------
+        | IMPORTANT:
+        | Calculate DisplayOrder one more time immediately
+        | before INSERT.
+        |--------------------------------------------------------------------------
+        */
+
+        $displayOrder =
+            getNextDisplayOrder($conn);
+
 
         $sql = "
             INSERT INTO dbo.Categories
@@ -664,6 +762,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $displayOrder,
 
             $isActive
+
         ];
 
 
@@ -684,13 +783,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
             /*
             |--------------------------------------------------------------------------
-            | DELETE IMAGE IF DATABASE INSERT FAILED
+            | DELETE IMAGE IF INSERT FAILED
             |--------------------------------------------------------------------------
             */
 
             if (
                 $uploadedPhysicalPath !== null &&
-                file_exists($uploadedPhysicalPath)
+                file_exists(
+                    $uploadedPhysicalPath
+                )
             ) {
 
                 @unlink(
@@ -699,7 +800,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             }
 
 
-            $errors = sqlsrv_errors();
+            $errors =
+                sqlsrv_errors();
 
 
             $error =
@@ -743,9 +845,11 @@ require_once __DIR__ . "/../includes/sidebar.php";
 
 <style>
 
-/* =========================================================
-   GLOBAL
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| GLOBAL
+|--------------------------------------------------------------------------
+*/
 
 html,
 body {
@@ -753,12 +857,15 @@ body {
     background: #0a1119 !important;
 
     color: #a8b8c8 !important;
+
 }
 
 
-/* =========================================================
-   THEME
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| THEME
+|--------------------------------------------------------------------------
+*/
 
 :root {
 
@@ -805,17 +912,21 @@ body {
     --red-soft: rgba(239,68,68,.12);
 
     --radius: 10px;
+
 }
 
 
-/* =========================================================
-   MAIN
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| MAIN
+|--------------------------------------------------------------------------
+*/
 
 .main,
 .content {
 
     background: #0a1119 !important;
+
 }
 
 
@@ -827,15 +938,20 @@ body {
 
     margin: 0 auto;
 
-    padding: 10px 0 45px;
+    padding: 20px 20px 45px;
+
+    box-sizing: border-box;
 
     color: var(--text-body);
+
 }
 
 
-/* =========================================================
-   HEADER
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| HEADER
+|--------------------------------------------------------------------------
+*/
 
 .add-category-header {
 
@@ -852,12 +968,14 @@ body {
     padding-bottom: 20px;
 
     border-bottom: 1px solid var(--border);
+
 }
 
 
 .add-category-header-left {
 
     min-width: 0;
+
 }
 
 
@@ -882,12 +1000,14 @@ body {
     letter-spacing: .4px;
 
     text-transform: uppercase;
+
 }
 
 
 .add-category-breadcrumb .current {
 
     color: var(--green);
+
 }
 
 
@@ -904,6 +1024,7 @@ body {
     font-weight: 800;
 
     letter-spacing: -.5px;
+
 }
 
 
@@ -916,12 +1037,15 @@ body {
     font-size: 12px;
 
     line-height: 1.5;
+
 }
 
 
-/* =========================================================
-   BACK BUTTON
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| BACK BUTTON
+|--------------------------------------------------------------------------
+*/
 
 .add-category-back {
 
@@ -954,6 +1078,7 @@ body {
     white-space: nowrap;
 
     transition: .2s ease;
+
 }
 
 
@@ -966,12 +1091,15 @@ body {
     color: var(--green) !important;
 
     transform: translateY(-1px);
+
 }
 
 
-/* =========================================================
-   ERROR
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| ERROR
+|--------------------------------------------------------------------------
+*/
 
 .add-category-error {
 
@@ -1000,6 +1128,7 @@ body {
     font-weight: 600;
 
     line-height: 1.5;
+
 }
 
 
@@ -1024,12 +1153,15 @@ body {
     color: #fca5a5;
 
     font-weight: 900;
+
 }
 
 
-/* =========================================================
-   FORM
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| FORM
+|--------------------------------------------------------------------------
+*/
 
 .add-category-form {
 
@@ -1043,7 +1175,9 @@ body {
 
     overflow: hidden;
 
-    box-shadow: 0 15px 40px rgba(0,0,0,.18);
+    box-shadow:
+        0 15px 40px rgba(0,0,0,.18);
+
 }
 
 
@@ -1052,6 +1186,9 @@ body {
     width: 100%;
 
     padding: 24px 22px;
+
+    box-sizing: border-box;
+
 }
 
 
@@ -1063,12 +1200,15 @@ body {
         repeat(2, minmax(0, 1fr));
 
     gap: 22px 26px;
+
 }
 
 
-/* =========================================================
-   SECTION HEADERS
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| SECTION
+|--------------------------------------------------------------------------
+*/
 
 .add-category-section {
 
@@ -1089,12 +1229,14 @@ body {
     background: var(--green-soft);
 
     border-left: 3px solid var(--green);
+
 }
 
 
 .add-category-section:first-child {
 
     margin-top: 0;
+
 }
 
 
@@ -1103,6 +1245,7 @@ body {
     background: var(--blue-soft);
 
     border-left-color: var(--blue);
+
 }
 
 
@@ -1111,6 +1254,7 @@ body {
     background: var(--purple-soft);
 
     border-left-color: var(--purple);
+
 }
 
 
@@ -1119,6 +1263,7 @@ body {
     background: var(--amber-soft);
 
     border-left-color: var(--amber);
+
 }
 
 
@@ -1145,6 +1290,7 @@ body {
     font-size: 12px;
 
     font-weight: 900;
+
 }
 
 
@@ -1153,6 +1299,7 @@ body {
     background: rgba(59,130,246,.18);
 
     color: var(--blue);
+
 }
 
 
@@ -1161,6 +1308,7 @@ body {
     background: rgba(139,92,246,.18);
 
     color: var(--purple);
+
 }
 
 
@@ -1169,6 +1317,7 @@ body {
     background: rgba(245,158,11,.18);
 
     color: var(--amber);
+
 }
 
 
@@ -1183,28 +1332,35 @@ body {
     text-transform: uppercase;
 
     letter-spacing: .8px;
+
 }
 
 
-/* =========================================================
-   FORM GROUP
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| FORM GROUP
+|--------------------------------------------------------------------------
+*/
 
 .add-form-group {
 
     min-width: 0;
+
 }
 
 
 .add-form-group-full {
 
     grid-column: 1 / -1;
+
 }
 
 
-/* =========================================================
-   LABEL
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| LABEL
+|--------------------------------------------------------------------------
+*/
 
 .add-form-label {
 
@@ -1221,6 +1377,7 @@ body {
     letter-spacing: .3px;
 
     text-transform: uppercase;
+
 }
 
 
@@ -1229,12 +1386,15 @@ body {
     color: var(--red);
 
     margin-left: 3px;
+
 }
 
 
-/* =========================================================
-   INPUT
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| INPUT
+|--------------------------------------------------------------------------
+*/
 
 .add-form-input,
 .add-form-select,
@@ -1264,6 +1424,7 @@ body {
         border-color .18s ease,
         box-shadow .18s ease,
         background .18s ease;
+
 }
 
 
@@ -1273,6 +1434,7 @@ body {
     height: 44px;
 
     padding: 0 13px;
+
 }
 
 
@@ -1285,6 +1447,7 @@ body {
     resize: vertical;
 
     line-height: 1.6;
+
 }
 
 
@@ -1294,6 +1457,7 @@ body {
     color: var(--text-mute);
 
     font-weight: 400;
+
 }
 
 
@@ -1302,6 +1466,7 @@ body {
 .add-form-textarea:hover {
 
     border-color: #304356;
+
 }
 
 
@@ -1313,12 +1478,69 @@ body {
 
     box-shadow:
         0 0 0 3px rgba(16,185,129,.13);
+
 }
 
 
-/* =========================================================
-   SELECT
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| DISPLAY ORDER AUTO FIELD
+|--------------------------------------------------------------------------
+*/
+
+.auto-order-input {
+
+    border-color:
+        rgba(16,185,129,.35);
+
+    background:
+        rgba(16,185,129,.06);
+
+    color:
+        var(--green);
+
+    font-weight:
+        800;
+
+    cursor:
+        not-allowed;
+
+}
+
+
+.auto-order-note {
+
+    display: flex;
+
+    align-items: center;
+
+    gap: 6px;
+
+    margin-top: 7px;
+
+    color: var(--text-mute);
+
+    font-size: 10px;
+
+    line-height: 1.4;
+
+}
+
+
+.auto-order-note span {
+
+    color: var(--green);
+
+    font-weight: 800;
+
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| SELECT
+|--------------------------------------------------------------------------
+*/
 
 .add-form-select {
 
@@ -1337,6 +1559,7 @@ body {
     padding-right: 38px;
 
     cursor: pointer;
+
 }
 
 
@@ -1345,12 +1568,15 @@ body {
     background: var(--bg-card);
 
     color: var(--text-hi);
+
 }
 
 
-/* =========================================================
-   IMAGE UPLOAD
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| IMAGE UPLOAD
+|--------------------------------------------------------------------------
+*/
 
 .category-upload-box {
 
@@ -1384,6 +1610,7 @@ body {
         border-color .2s ease,
         background .2s ease,
         box-shadow .2s ease;
+
 }
 
 
@@ -1397,6 +1624,7 @@ body {
     box-shadow:
         0 0 0 4px
         rgba(16,185,129,.06);
+
 }
 
 
@@ -1411,12 +1639,14 @@ body {
     opacity: 0;
 
     pointer-events: none;
+
 }
 
 
 .category-upload-content {
 
     text-align: center;
+
 }
 
 
@@ -1444,6 +1674,7 @@ body {
     font-size: 21px;
 
     font-weight: 900;
+
 }
 
 
@@ -1454,12 +1685,14 @@ body {
     font-size: 12px;
 
     font-weight: 700;
+
 }
 
 
 .category-upload-title span {
 
     color: var(--green);
+
 }
 
 
@@ -1472,12 +1705,15 @@ body {
     font-size: 10px;
 
     font-weight: 500;
+
 }
 
 
-/* =========================================================
-   IMAGE PREVIEW
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| IMAGE PREVIEW
+|--------------------------------------------------------------------------
+*/
 
 .category-image-preview {
 
@@ -1488,6 +1724,7 @@ body {
     gap: 17px;
 
     width: 100%;
+
 }
 
 
@@ -1509,6 +1746,7 @@ body {
 
     box-shadow:
         0 8px 22px rgba(0,0,0,.25);
+
 }
 
 
@@ -1519,6 +1757,7 @@ body {
     flex: 1;
 
     text-align: left;
+
 }
 
 
@@ -1531,6 +1770,7 @@ body {
     font-weight: 700;
 
     word-break: break-word;
+
 }
 
 
@@ -1541,6 +1781,7 @@ body {
     color: var(--text-mute);
 
     font-size: 10.5px;
+
 }
 
 
@@ -1563,12 +1804,15 @@ body {
     font-size: 10px;
 
     font-weight: 700;
+
 }
 
 
-/* =========================================================
-   ACTIVE
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| ACTIVE
+|--------------------------------------------------------------------------
+*/
 
 .add-active-box {
 
@@ -1585,6 +1829,7 @@ body {
     border-radius: 9px;
 
     background: var(--bg-input);
+
 }
 
 
@@ -1605,6 +1850,7 @@ body {
     cursor: pointer;
 
     user-select: none;
+
 }
 
 
@@ -1619,12 +1865,15 @@ body {
     accent-color: var(--green);
 
     cursor: pointer;
+
 }
 
 
-/* =========================================================
-   SEO HELP
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| SEO HELP
+|--------------------------------------------------------------------------
+*/
 
 .seo-note {
 
@@ -1635,12 +1884,15 @@ body {
     font-size: 10px;
 
     line-height: 1.45;
+
 }
 
 
-/* =========================================================
-   FORM FOOTER
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| FORM FOOTER
+|--------------------------------------------------------------------------
+*/
 
 .add-category-form-footer {
 
@@ -1657,6 +1909,7 @@ body {
     border-top: 1px solid var(--border);
 
     background: var(--bg-card-alt);
+
 }
 
 
@@ -1667,12 +1920,15 @@ body {
     align-items: center;
 
     gap: 10px;
+
 }
 
 
-/* =========================================================
-   BUTTONS
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| BUTTONS
+|--------------------------------------------------------------------------
+*/
 
 .add-category-btn {
 
@@ -1703,12 +1959,14 @@ body {
     cursor: pointer;
 
     transition: all .18s ease;
+
 }
 
 
 .add-category-btn:active {
 
     transform: translateY(1px);
+
 }
 
 
@@ -1719,6 +1977,7 @@ body {
     background: var(--bg-input);
 
     color: var(--text-body) !important;
+
 }
 
 
@@ -1729,6 +1988,7 @@ body {
     background: var(--bg-hover);
 
     color: var(--text-hi) !important;
+
 }
 
 
@@ -1748,6 +2008,7 @@ body {
     box-shadow:
         0 6px 18px
         rgba(16,185,129,.24);
+
 }
 
 
@@ -1760,6 +2021,7 @@ body {
         rgba(16,185,129,.35);
 
     transform: translateY(-1px);
+
 }
 
 
@@ -1770,12 +2032,15 @@ body {
     cursor: wait;
 
     transform: none;
+
 }
 
 
-/* =========================================================
-   SHORTCUTS
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| SHORTCUTS
+|--------------------------------------------------------------------------
+*/
 
 .shortcut-help-box {
 
@@ -1791,12 +2056,14 @@ body {
 
     box-shadow:
         0 10px 30px rgba(0,0,0,.12);
+
 }
 
 
 .shortcut-help-box.hidden {
 
     display: none;
+
 }
 
 
@@ -1815,6 +2082,7 @@ body {
     font-size: 13px;
 
     font-weight: 700;
+
 }
 
 
@@ -1837,6 +2105,7 @@ body {
     color: var(--green);
 
     font-size: 14px;
+
 }
 
 
@@ -1849,6 +2118,7 @@ body {
     font-size: 10px;
 
     font-family: monospace;
+
 }
 
 
@@ -1860,6 +2130,7 @@ body {
         repeat(auto-fill, minmax(220px, 1fr));
 
     gap: 10px;
+
 }
 
 
@@ -1885,6 +2156,7 @@ body {
         border-color .18s ease,
         background .18s ease,
         transform .18s ease;
+
 }
 
 
@@ -1895,6 +2167,7 @@ body {
     background: var(--green-soft);
 
     transform: translateY(-1px);
+
 }
 
 
@@ -1936,21 +2209,6 @@ body {
         inset 0 0 0 1px rgba(255,255,255,.02),
         0 3px 8px rgba(0,0,0,.18);
 
-    transition:
-        .18s ease;
-}
-
-
-.shortcut-item:hover .shortcut-key {
-
-    border-color: var(--green);
-
-    background: var(--green-soft);
-
-    transform: translateY(-1px);
-
-    box-shadow:
-        0 4px 12px rgba(16,185,129,.12);
 }
 
 
@@ -1963,26 +2221,32 @@ body {
     font-weight: 600;
 
     line-height: 1.35;
+
 }
 
 
-/* =========================================================
-   TABLET
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| TABLET
+|--------------------------------------------------------------------------
+*/
 
 @media (max-width: 1000px) {
 
     .add-category-page {
 
         max-width: 100%;
+
     }
 
 }
 
 
-/* =========================================================
-   MOBILE
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| MOBILE
+|--------------------------------------------------------------------------
+*/
 
 @media (max-width: 900px) {
 
@@ -1993,42 +2257,49 @@ body {
         flex-direction: column;
 
         gap: 14px;
+
     }
 
 
     .add-category-back {
 
         width: 100%;
+
     }
 
 
     .add-category-grid {
 
         grid-template-columns: 1fr;
+
     }
 
 
     .add-form-group-full {
 
         grid-column: auto;
+
     }
 
 
     .add-category-form-footer {
 
         padding: 16px;
+
     }
 
 
     .add-category-footer-actions {
 
         width: 100%;
+
     }
 
 
     .add-category-btn {
 
         flex: 1;
+
     }
 
 
@@ -2036,14 +2307,17 @@ body {
 
         grid-template-columns:
             repeat(2, 1fr);
+
     }
 
 }
 
 
-/* =========================================================
-   SMALL MOBILE
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| SMALL MOBILE
+|--------------------------------------------------------------------------
+*/
 
 @media (max-width: 560px) {
 
@@ -2051,37 +2325,44 @@ body {
 
         width: 100%;
 
-        padding-bottom: 30px;
+        padding:
+            15px 12px 30px;
+
     }
 
 
     .add-category-title {
 
         font-size: 22px;
+
     }
 
 
     .add-category-subtitle {
 
         font-size: 11px;
+
     }
 
 
     .add-category-form-body {
 
         padding: 18px 15px;
+
     }
 
 
     .add-category-grid {
 
         gap: 18px;
+
     }
 
 
     .add-category-section {
 
         padding: 9px 11px;
+
     }
 
 
@@ -2091,6 +2372,7 @@ body {
 
         grid-template-columns:
             1fr 1fr;
+
     }
 
 
@@ -2101,6 +2383,7 @@ body {
         padding-left: 12px;
 
         padding-right: 12px;
+
     }
 
 
@@ -2109,6 +2392,7 @@ body {
         min-height: 145px;
 
         padding: 18px;
+
     }
 
 
@@ -2119,18 +2403,21 @@ body {
         height: 75px;
 
         flex-basis: 75px;
+
     }
 
 
     .shortcut-grid {
 
         grid-template-columns: 1fr;
+
     }
 
 
     .shortcut-help-box {
 
         padding: 14px 15px;
+
     }
 
 
@@ -2139,6 +2426,7 @@ body {
         align-items: flex-start;
 
         flex-wrap: wrap;
+
     }
 
 
@@ -2149,14 +2437,17 @@ body {
         margin-left: 38px;
 
         margin-top: 2px;
+
     }
 
 }
 
 
-/* =========================================================
-   PRINT
-========================================================= */
+/*
+|--------------------------------------------------------------------------
+| PRINT
+|--------------------------------------------------------------------------
+*/
 
 @media print {
 
@@ -2169,6 +2460,7 @@ body {
     .shortcut-help-box {
 
         display: none !important;
+
     }
 
 
@@ -2177,6 +2469,7 @@ body {
         margin-left: 0 !important;
 
         padding: 0 !important;
+
     }
 
 }
@@ -2184,9 +2477,11 @@ body {
 </style>
 
 
-<!-- =========================================================
-     MAIN CONTENT
-========================================================= -->
+<!--
+|--------------------------------------------------------------------------
+| MAIN CONTENT
+|--------------------------------------------------------------------------
+-->
 
 <main class="main">
 
@@ -2195,9 +2490,7 @@ body {
         <div class="add-category-page">
 
 
-            <!-- =================================================
-                 PAGE HEADER
-            ================================================== -->
+            <!-- PAGE HEADER -->
 
             <div class="add-category-header">
 
@@ -2229,7 +2522,8 @@ body {
 
                     <p class="add-category-subtitle">
 
-                        Create a new product category with image,
+                        Create a new product category with
+                        automatic display order, image,
                         SEO and display settings.
 
                     </p>
@@ -2253,9 +2547,7 @@ body {
             </div>
 
 
-            <!-- =================================================
-                 ERROR
-            ================================================== -->
+            <!-- ERROR -->
 
             <?php if ($error !== ""): ?>
 
@@ -2280,9 +2572,7 @@ body {
             <?php endif; ?>
 
 
-            <!-- =================================================
-                 FORM
-            ================================================== -->
+            <!-- FORM -->
 
             <form
                 method="POST"
@@ -2297,9 +2587,7 @@ body {
                     <div class="add-category-grid">
 
 
-                        <!-- =================================================
-                             BASIC INFORMATION
-                        ================================================== -->
+                        <!-- BASIC INFORMATION -->
 
                         <div class="add-category-section">
 
@@ -2434,8 +2722,8 @@ body {
                                             (string) $parentId ===
                                             (string) $parentCategoryId
                                         )
-                                        ? "selected"
-                                        : "" ?>
+                                            ? "selected"
+                                            : "" ?>
                                     >
 
                                         <?= htmlspecialchars(
@@ -2468,21 +2756,32 @@ body {
 
 
                             <input
-                                type="number"
+                                type="text"
                                 id="displayOrder"
                                 name="display_order"
-                                class="add-form-input"
+                                class="add-form-input auto-order-input"
                                 value="<?= (int) $displayOrder ?>"
-                                min="0"
-                                step="1"
+                                readonly
+                                aria-readonly="true"
+                                tabindex="-1"
                             >
+
+
+                            <div class="auto-order-note">
+
+                                <span>✓</span>
+
+                                <span>
+                                    Automatically assigned from the
+                                    next available order number.
+                                </span>
+
+                            </div>
 
                         </div>
 
 
-                        <!-- =================================================
-                             CATEGORY IMAGE
-                        ================================================== -->
+                        <!-- CATEGORY IMAGE -->
 
                         <div class="add-category-section sec-blue">
 
@@ -2501,7 +2800,9 @@ body {
 
                         <!-- IMAGE -->
 
-                        <div class="add-form-group add-form-group-full">
+                        <div
+                            class="add-form-group add-form-group-full"
+                        >
 
                             <label
                                 for="categoryImage"
@@ -2514,17 +2815,7 @@ body {
                                     id="categoryImage"
                                     name="category_image"
                                     class="category-upload-input"
-                                    accept="
-                                        .jpg,
-                                        .jpeg,
-                                        .png,
-                                        .webp,
-                                        .gif,
-                                        image/jpeg,
-                                        image/png,
-                                        image/webp,
-                                        image/gif
-                                    "
+                                    accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
                                 >
 
 
@@ -2535,14 +2826,19 @@ body {
                                     id="categoryUploadContent"
                                 >
 
-                                    <div class="category-upload-icon">
+                                    <div
+                                        class="category-upload-icon"
+                                    >
                                         ↑
                                     </div>
 
 
-                                    <div class="category-upload-title">
+                                    <div
+                                        class="category-upload-title"
+                                    >
 
                                         Click to
+
                                         <span>
                                             upload image
                                         </span>
@@ -2550,7 +2846,9 @@ body {
                                     </div>
 
 
-                                    <div class="category-upload-help">
+                                    <div
+                                        class="category-upload-help"
+                                    >
 
                                         JPG, JPEG, PNG, WEBP or GIF
                                         &nbsp;•&nbsp;
@@ -2576,7 +2874,9 @@ body {
                                     >
 
 
-                                    <div class="category-preview-info">
+                                    <div
+                                        class="category-preview-info"
+                                    >
 
                                         <div
                                             class="category-preview-name"
@@ -2590,7 +2890,9 @@ body {
                                         ></div>
 
 
-                                        <div class="category-preview-change">
+                                        <div
+                                            class="category-preview-change"
+                                        >
 
                                             Click to change image
 
@@ -2605,17 +2907,21 @@ body {
                         </div>
 
 
-                        <!-- =================================================
-                             ADDITIONAL INFORMATION
-                        ================================================== -->
+                        <!-- ADDITIONAL INFORMATION -->
 
-                        <div class="add-category-section sec-purple">
+                        <div
+                            class="add-category-section sec-purple"
+                        >
 
-                            <div class="add-category-section-icon">
+                            <div
+                                class="add-category-section-icon"
+                            >
                                 ≡
                             </div>
 
-                            <div class="add-category-section-title">
+                            <div
+                                class="add-category-section-title"
+                            >
 
                                 Additional Information
 
@@ -2626,7 +2932,9 @@ body {
 
                         <!-- DESCRIPTION -->
 
-                        <div class="add-form-group add-form-group-full">
+                        <div
+                            class="add-form-group add-form-group-full"
+                        >
 
                             <label
                                 for="categoryDescription"
@@ -2666,7 +2974,9 @@ body {
 
                             <div class="add-active-box">
 
-                                <label class="add-active-label">
+                                <label
+                                    class="add-active-label"
+                                >
 
                                     <input
                                         type="checkbox"
@@ -2689,23 +2999,24 @@ body {
                         </div>
 
 
-                        <!-- EMPTY SPACE -->
-
-                        <div class="add-form-group">
-                        </div>
+                        <div class="add-form-group"></div>
 
 
-                        <!-- =================================================
-                             SEO
-                        ================================================== -->
+                        <!-- SEO -->
 
-                        <div class="add-category-section sec-amber">
+                        <div
+                            class="add-category-section sec-amber"
+                        >
 
-                            <div class="add-category-section-icon">
+                            <div
+                                class="add-category-section-icon"
+                            >
                                 S
                             </div>
 
-                            <div class="add-category-section-title">
+                            <div
+                                class="add-category-section-title"
+                            >
 
                                 SEO Settings
 
@@ -2780,13 +3091,13 @@ body {
                 </div>
 
 
-                <!-- =================================================
-                     FOOTER
-                ================================================== -->
+                <!-- FORM FOOTER -->
 
                 <div class="add-category-form-footer">
 
-                    <div class="add-category-footer-actions">
+                    <div
+                        class="add-category-footer-actions"
+                    >
 
                         <a
                             href="index.php"
@@ -2819,18 +3130,20 @@ body {
             </form>
 
 
-            <!-- =================================================
-                 KEYBOARD SHORTCUTS
-            ================================================== -->
+            <!-- KEYBOARD SHORTCUTS -->
 
             <div
                 class="shortcut-help-box"
                 id="shortcutHelpBox"
             >
 
-                <div class="shortcut-help-title">
+                <div
+                    class="shortcut-help-title"
+                >
 
-                    <span class="shortcut-help-title-icon">
+                    <span
+                        class="shortcut-help-title-icon"
+                    >
                         ⌨
                     </span>
 
@@ -2848,8 +3161,6 @@ body {
                 <div class="shortcut-grid">
 
 
-                    <!-- SAVE -->
-
                     <div class="shortcut-item">
 
                         <span class="shortcut-key">
@@ -2862,8 +3173,6 @@ body {
 
                     </div>
 
-
-                    <!-- BACK -->
 
                     <div class="shortcut-item">
 
@@ -2878,8 +3187,6 @@ body {
                     </div>
 
 
-                    <!-- CANCEL -->
-
                     <div class="shortcut-item">
 
                         <span class="shortcut-key">
@@ -2892,8 +3199,6 @@ body {
 
                     </div>
 
-
-                    <!-- NAME -->
 
                     <div class="shortcut-item">
 
@@ -2908,8 +3213,6 @@ body {
                     </div>
 
 
-                    <!-- SLUG -->
-
                     <div class="shortcut-item">
 
                         <span class="shortcut-key">
@@ -2922,8 +3225,6 @@ body {
 
                     </div>
 
-
-                    <!-- IMAGE -->
 
                     <div class="shortcut-item">
 
@@ -2938,8 +3239,6 @@ body {
                     </div>
 
 
-                    <!-- HELP -->
-
                     <div class="shortcut-item">
 
                         <span class="shortcut-key">
@@ -2953,8 +3252,6 @@ body {
                     </div>
 
 
-                    <!-- ESC -->
-
                     <div class="shortcut-item">
 
                         <span class="shortcut-key">
@@ -2966,7 +3263,6 @@ body {
                         </span>
 
                     </div>
-
 
                 </div>
 
@@ -3002,12 +3298,6 @@ document.addEventListener(
         const imageInput =
             document.getElementById(
                 "categoryImage"
-            );
-
-
-        const uploadBox =
-            document.getElementById(
-                "categoryUploadBox"
             );
 
 
@@ -3107,12 +3397,6 @@ document.addEventListener(
                             ? this.files[0]
                             : null;
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | NO FILE
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (!file) {
 
@@ -3221,7 +3505,7 @@ document.addEventListener(
 
                     /*
                     |--------------------------------------------------------------------------
-                    | FILE READER
+                    | PREVIEW
                     |--------------------------------------------------------------------------
                     */
 
@@ -3302,7 +3586,8 @@ document.addEventListener(
         */
 
         let slugManuallyChanged =
-            false;
+            slugInput &&
+            slugInput.value.trim() !== "";
 
 
         if (slugInput) {
@@ -3330,34 +3615,27 @@ document.addEventListener(
                 function () {
 
                     if (
-                        slugManuallyChanged
+                        !slugManuallyChanged
                     ) {
 
-                        return;
+                        let slug =
+                            this.value
+                                .toLowerCase()
+                                .trim()
+                                .replace(
+                                    /[^a-z0-9]+/g,
+                                    "-"
+                                )
+                                .replace(
+                                    /^-+|-+$/g,
+                                    ""
+                                );
+
+
+                        slugInput.value =
+                            slug;
 
                     }
-
-
-                    let slug =
-                        this.value
-
-                            .toLowerCase()
-
-                            .trim()
-
-                            .replace(
-                                /[^a-z0-9]+/g,
-                                "-"
-                            )
-
-                            .replace(
-                                /^-+|-+$/g,
-                                ""
-                            );
-
-
-                    slugInput.value =
-                        slug;
 
 
                     /*
@@ -3417,7 +3695,7 @@ document.addEventListener(
 
         /*
         |--------------------------------------------------------------------------
-        | FORM SUBMIT PROTECTION
+        | FORM SUBMIT
         |--------------------------------------------------------------------------
         */
 
@@ -3429,12 +3707,6 @@ document.addEventListener(
             form.addEventListener(
                 "submit",
                 function (event) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | NAME VALIDATION
-                    |--------------------------------------------------------------------------
-                    */
 
                     if (
                         !nameInput ||
@@ -3458,12 +3730,6 @@ document.addEventListener(
 
                     }
 
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | DISABLE BUTTON
-                    |--------------------------------------------------------------------------
-                    */
 
                     saveButton.disabled =
                         true;
@@ -3512,32 +3778,13 @@ document.addEventListener(
             "keydown",
             function (e) {
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | KEY
-                |--------------------------------------------------------------------------
-                */
-
                 const key =
                     e.key.toLowerCase();
 
 
-                /*
-                |--------------------------------------------------------------------------
-                | CURRENT ACTIVE ELEMENT
-                |--------------------------------------------------------------------------
-                */
-
                 const activeElement =
                     document.activeElement;
 
-
-                /*
-                |--------------------------------------------------------------------------
-                | CHECK IF USER IS TYPING
-                |--------------------------------------------------------------------------
-                */
 
                 const isTyping =
                     activeElement &&
@@ -3551,12 +3798,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | H = SHOW / HIDE SHORTCUT HELP
-                |--------------------------------------------------------------------------
-                |
-                | H is allowed even while typing because it does not
-                | modify the current field.
-                |
+                | H = HELP
                 |--------------------------------------------------------------------------
                 */
 
@@ -3589,7 +3831,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | ESC = BLUR
+                | ESC
                 |--------------------------------------------------------------------------
                 */
 
@@ -3613,7 +3855,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | DO NOT RUN OTHER SHORTCUTS WHILE TYPING
+                | DON'T RUN OTHER SHORTCUTS WHILE TYPING
                 |--------------------------------------------------------------------------
                 */
 
@@ -3626,7 +3868,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | IGNORE CTRL / ALT / SHIFT / META COMBINATIONS
+                | IGNORE MODIFIERS
                 |--------------------------------------------------------------------------
                 */
 
@@ -3643,7 +3885,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | A = SAVE CATEGORY
+                | A = SAVE
                 |--------------------------------------------------------------------------
                 */
 
@@ -3677,7 +3919,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | B = BACK TO CATEGORIES
+                | B = BACK
                 |--------------------------------------------------------------------------
                 */
 
@@ -3687,10 +3929,8 @@ document.addEventListener(
 
                     e.preventDefault();
 
-
                     window.location.href =
                         "index.php";
-
 
                     return;
                 }
@@ -3708,10 +3948,8 @@ document.addEventListener(
 
                     e.preventDefault();
 
-
                     window.location.href =
                         "index.php";
-
 
                     return;
                 }
@@ -3719,7 +3957,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | N = FOCUS CATEGORY NAME
+                | N = NAME
                 |--------------------------------------------------------------------------
                 */
 
@@ -3744,7 +3982,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | G = FOCUS SLUG
+                | G = SLUG
                 |--------------------------------------------------------------------------
                 */
 
@@ -3769,7 +4007,7 @@ document.addEventListener(
 
                 /*
                 |--------------------------------------------------------------------------
-                | I = UPLOAD IMAGE
+                | I = IMAGE
                 |--------------------------------------------------------------------------
                 */
 
