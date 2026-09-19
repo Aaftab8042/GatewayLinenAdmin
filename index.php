@@ -1,5 +1,9 @@
 <?php
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 session_start();
 
 require_once __DIR__ . '/config/database.php';
@@ -35,37 +39,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST["username"] ?? "");
     $password = $_POST["password"] ?? "";
 
-    /*
-    |--------------------------------------------------------------------------
-    | VALIDATION
-    |--------------------------------------------------------------------------
-    */
-
     if ($username === "" || $password === "") {
-
         $error = "Please enter your username and password.";
-
     } else {
 
-        /*
-        |--------------------------------------------------------------------------
-        | FIND USER FROM dbo.Users
-        |--------------------------------------------------------------------------
-        | RoleId = 1 means administrator according to your database.
-        |--------------------------------------------------------------------------
-        */
-
+        // FIX: Query ab dbo.admins table se data fetch karegi
         $sql = "
             SELECT
-                UserId,
-                Username,
+                AdminID,
                 FullName,
+                Username,
                 Email,
-                RoleId,
-                PasswordHash
-            FROM dbo.Users
+                PasswordHash,
+                Status
+            FROM dbo.admins
             WHERE Username = ?
-              AND RoleId = 1
         ";
 
         $stmt = sqlsrv_query(
@@ -74,101 +62,40 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             [$username]
         );
 
-        /*
-        |--------------------------------------------------------------------------
-        | DATABASE QUERY ERROR
-        |--------------------------------------------------------------------------
-        */
-
         if ($stmt === false) {
-
-            error_log(
-                "GatewayLinen Login Query Error: " .
-                print_r(sqlsrv_errors(), true)
-            );
-
+            error_log("GatewayLinen Admin Login Query Error: " . print_r(sqlsrv_errors(), true));
             $error = "Database error. Please try again.";
-
         } else {
 
-            /*
-            |--------------------------------------------------------------------------
-            | FETCH USER RECORD
-            |--------------------------------------------------------------------------
-            */
+            $admin = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
 
-            $user = sqlsrv_fetch_array(
-                $stmt,
-                SQLSRV_FETCH_ASSOC
-            );
-
-            if (!$user) {
-
+            if (!$admin) {
                 $error = "Incorrect username or password.";
-
             } else {
 
-                /*
-                |--------------------------------------------------------------------------
-                | VERIFY PASSWORD
-                |--------------------------------------------------------------------------
-                */
-
-                $passwordHash = trim($user["PasswordHash"] ?? "");
-
-                if (
-                    $passwordHash !== "" &&
-                    password_verify($password, $passwordHash)
-                ) {
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | REGENERATE SESSION
-                    |--------------------------------------------------------------------------
-                    */
-
-                    session_regenerate_id(true);
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | ADMIN SESSION DATA
-                    |--------------------------------------------------------------------------
-                    */
-
-                    $_SESSION["admin_id"] =
-                        (int) $user["UserId"];
-
-                    $_SESSION["admin_name"] =
-                        $user["FullName"];
-
-                    $_SESSION["admin_username"] =
-                        $user["Username"];
-
-                    $_SESSION["admin_email"] =
-                        $user["Email"] ?? "";
-
-                    $_SESSION["admin_role_id"] =
-                        (int) $user["RoleId"];
-
-                    $_SESSION["login_date"] =
-                        date("d-m-Y");
-
-                    $_SESSION["login_time"] =
-                        date("H:i:s");
-
-                    /*
-                    |--------------------------------------------------------------------------
-                    | LOGIN SUCCESS
-                    |--------------------------------------------------------------------------
-                    */
-
-                    header("Location: dashboard.php");
-                    exit;
-
+                // Check if admin status is active (Status = 1)
+                if ((int)($admin['Status'] ?? 0) !== 1) {
+                    $error = "Admin account is disabled.";
                 } else {
+                    $passwordHash = trim($admin["PasswordHash"] ?? "");
 
-                    $error = "Incorrect username or password.";
+                    if ($passwordHash !== "" && password_verify($password, $passwordHash)) {
 
+                        session_regenerate_id(true);
+
+                        // FIX: Session keys updated for dbo.admins columns
+                        $_SESSION["admin_id"] = (int) $admin["AdminID"];
+                        $_SESSION["admin_name"] = $admin["FullName"];
+                        $_SESSION["admin_username"] = $admin["Username"];
+                        $_SESSION["admin_email"] = $admin["Email"] ?? "";
+                        $_SESSION["login_date"] = date("d-m-Y");
+                        $_SESSION["login_time"] = date("H:i:s");
+
+                        header("Location: dashboard.php");
+                        exit;
+                    } else {
+                        $error = "Incorrect username or password.";
+                    }
                 }
             }
 
@@ -188,23 +115,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
-    >
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
     <meta
         name="theme-color"
-        content="#0a1119"
-    >
+        content="#0a1119">
 
     <meta
         name="description"
-        content="Secure GatewayLinen administrator sign-in"
-    >
+        content="Secure GatewayLinen administrator sign-in">
 
     <title>GatewayLinen | Administrator Sign-In</title>
 
     <style>
-
         /* =========================================================
            RESET
         ========================================================= */
@@ -345,8 +268,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             display: grid;
 
             grid-template-columns:
-                minmax(0, 1.08fr)
-                minmax(380px, 0.92fr);
+                minmax(0, 1.08fr) minmax(380px, 0.92fr);
 
             background: var(--bg-page);
 
@@ -371,16 +293,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             justify-content: center;
 
             padding:
-                clamp(2rem, 5vw, 5rem)
-                clamp(2rem, 5vw, 6rem);
+                clamp(2rem, 5vw, 5rem) clamp(2rem, 5vw, 6rem);
 
             background:
-                linear-gradient(
-                    145deg,
+                linear-gradient(145deg,
                     #060d14 0%,
                     #0d1620 45%,
-                    #0d3a35 100%
-                );
+                    #0d3a35 100%);
 
             overflow: hidden;
 
@@ -406,8 +325,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-radius: 50%;
 
             border:
-                1px solid
-                rgba(16, 185, 129, 0.15);
+                1px solid rgba(16, 185, 129, 0.15);
 
             top: clamp(-300px, -15vw, -160px);
             right: clamp(-300px, -15vw, -160px);
@@ -431,8 +349,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-radius: 50%;
 
             border:
-                1px solid
-                rgba(16, 185, 129, 0.06);
+                1px solid rgba(16, 185, 129, 0.06);
 
             bottom: clamp(-500px, -25vw, -250px);
             left: clamp(-450px, -25vw, -200px);
@@ -471,14 +388,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-radius: 50%;
 
             border:
-                clamp(2px, 0.2vw, 3px)
-                solid
-                var(--green);
+                clamp(2px, 0.2vw, 3px) solid var(--green);
 
             box-shadow:
                 0 0 0 4px rgba(16, 185, 129, 0.08),
-                0 18px 42px
-                rgba(0, 0, 0, 0.5);
+                0 18px 42px rgba(0, 0, 0, 0.5);
 
             display: flex;
             align-items: center;
@@ -547,18 +461,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             height: clamp(3px, 0.3vw, 5px);
 
             background:
-                linear-gradient(
-                    90deg,
+                linear-gradient(90deg,
                     var(--green),
-                    rgba(16, 185, 129, 0.3)
-                );
+                    rgba(16, 185, 129, 0.3));
 
             border-radius: 100px;
 
             margin:
-                clamp(0.5rem, 1vw, 0.8rem)
-                0
-                clamp(0.9rem, 1.5vw, 1.3rem);
+                clamp(0.5rem, 1vw, 0.8rem) 0 clamp(0.9rem, 1.5vw, 1.3rem);
 
             box-shadow:
                 0 0 16px rgba(16, 185, 129, 0.4);
@@ -641,15 +551,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             gap: 10px;
 
             padding:
-                clamp(0.65rem, 1vw, 0.85rem)
-                clamp(0.75rem, 1.2vw, 1rem);
+                clamp(0.65rem, 1vw, 0.85rem) clamp(0.75rem, 1.2vw, 1rem);
 
             background:
                 rgba(16, 185, 129, 0.06);
 
             border:
-                1px solid
-                var(--border);
+                1px solid var(--border);
 
             border-radius:
                 clamp(10px, 1vw, 14px);
@@ -719,8 +627,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             justify-content: center;
 
             padding:
-                clamp(1.5rem, 4vw, 4.5rem)
-                clamp(1.5rem, 4vw, 5rem);
+                clamp(1.5rem, 4vw, 4.5rem) clamp(1.5rem, 4vw, 5rem);
 
             background: var(--bg-page);
 
@@ -755,16 +662,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             background: var(--green-soft);
 
             border:
-                1px solid
-                rgba(16, 185, 129, 0.35);
+                1px solid rgba(16, 185, 129, 0.35);
 
             border-radius: 100px;
 
             padding:
-                0.45rem
-                0.95rem
-                0.45rem
-                0.72rem;
+                0.45rem 0.95rem 0.45rem 0.72rem;
 
             font-size: 0.7rem;
 
@@ -793,10 +696,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             background: var(--green);
 
             box-shadow:
-                0 0 0 4px
-                rgba(16, 185, 129, 0.2),
-                0 0 12px
-                rgba(16, 185, 129, 0.6);
+                0 0 0 4px rgba(16, 185, 129, 0.2),
+                0 0 12px rgba(16, 185, 129, 0.6);
 
             animation: pulse-dot 2s infinite;
         }
@@ -804,7 +705,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         @keyframes pulse-dot {
 
-            0%, 100% {
+            0%,
+            100% {
                 box-shadow:
                     0 0 0 4px rgba(16, 185, 129, 0.2),
                     0 0 12px rgba(16, 185, 129, 0.6);
@@ -870,8 +772,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             background: var(--red-soft);
 
             border:
-                1px solid
-                rgba(239, 68, 68, 0.3);
+                1px solid rgba(239, 68, 68, 0.3);
 
             border-left:
                 3px solid var(--red);
@@ -879,8 +780,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             border-radius: 12px;
 
             padding:
-                0.85rem
-                1rem;
+                0.85rem 1rem;
 
             margin-bottom: 1.4rem;
 
@@ -995,12 +895,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 clamp(52px, 4.2vw, 58px);
 
             padding:
-                0 3.2rem
-                0 2.8rem;
+                0 3.2rem 0 2.8rem;
 
             border:
-                1px solid
-                var(--border);
+                1px solid var(--border);
 
             border-radius:
                 clamp(11px, 1vw, 14px);
@@ -1036,12 +934,11 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             background: var(--bg-input);
 
             box-shadow:
-                0 0 0 4px
-                rgba(16, 185, 129, 0.15);
+                0 0 0 4px rgba(16, 185, 129, 0.15);
         }
 
 
-        .form-input:focus ~ .input-icon {
+        .form-input:focus~.input-icon {
 
             color: var(--green);
         }
@@ -1111,8 +1008,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             height: 12px;
 
             border:
-                2px solid
-                currentColor;
+                2px solid currentColor;
 
             border-radius:
                 80% 20%;
@@ -1187,11 +1083,9 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 clamp(11px, 1vw, 14px);
 
             background:
-                linear-gradient(
-                    135deg,
+                linear-gradient(135deg,
                     #059669 0%,
-                    #10b981 100%
-                );
+                    #10b981 100%);
 
             color: #FFFFFF;
 
@@ -1212,8 +1106,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 0 1.4rem;
 
             box-shadow:
-                0 12px 28px
-                rgba(16, 185, 129, 0.25);
+                0 12px 28px rgba(16, 185, 129, 0.25);
 
             transition:
                 transform 0.18s ease,
@@ -1229,8 +1122,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             filter: brightness(1.08);
 
             box-shadow:
-                0 16px 36px
-                rgba(16, 185, 129, 0.4);
+                0 16px 36px rgba(16, 185, 129, 0.4);
 
             transform:
                 translateY(-1px);
@@ -1317,8 +1209,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 clamp(1rem, 1.5vw, 1.35rem);
 
             border-top:
-                1px solid
-                var(--border);
+                1px solid var(--border);
 
             text-align: center;
 
@@ -1349,8 +1240,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .login-wrapper {
 
                 grid-template-columns:
-                    minmax(0, 1.12fr)
-                    minmax(500px, 0.88fr);
+                    minmax(0, 1.12fr) minmax(500px, 0.88fr);
             }
 
             .brand-inner {
@@ -1374,8 +1264,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .login-wrapper {
 
                 grid-template-columns:
-                    minmax(0, 1fr)
-                    minmax(360px, 0.9fr);
+                    minmax(0, 1fr) minmax(360px, 0.9fr);
             }
 
             .brand-panel {
@@ -1412,8 +1301,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .login-wrapper {
 
                 grid-template-columns:
-                    minmax(0, 0.95fr)
-                    minmax(350px, 1.05fr);
+                    minmax(0, 0.95fr) minmax(350px, 1.05fr);
             }
 
             .brand-panel {
@@ -1481,8 +1369,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 min-height: auto;
 
                 padding:
-                    clamp(1.5rem, 5vw, 2.4rem)
-                    clamp(1.2rem, 5vw, 2rem);
+                    clamp(1.5rem, 5vw, 2.4rem) clamp(1.2rem, 5vw, 2rem);
 
                 text-align: center;
 
@@ -1505,8 +1392,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .logo-ring {
 
                 margin:
-                    0 auto
-                    clamp(0.8rem, 2vw, 1.2rem);
+                    0 auto clamp(0.8rem, 2vw, 1.2rem);
             }
 
 
@@ -1548,9 +1434,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 min-height: auto;
 
                 padding:
-                    clamp(1.2rem, 4vw, 2rem)
-                    clamp(1rem, 4vw, 1.5rem)
-                    2rem;
+                    clamp(1.2rem, 4vw, 2rem) clamp(1rem, 4vw, 1.5rem) 2rem;
 
                 align-items: flex-start;
 
@@ -1568,8 +1452,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 background: var(--bg-card);
 
                 border:
-                    1px solid
-                    var(--border);
+                    1px solid var(--border);
 
                 border-radius: 22px;
 
@@ -1591,9 +1474,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .brand-panel {
 
                 padding:
-                    1.35rem
-                    1rem
-                    1.4rem;
+                    1.35rem 1rem 1.4rem;
             }
 
 
@@ -1625,9 +1506,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .login-panel {
 
                 padding:
-                    0.9rem
-                    0.75rem
-                    1.4rem;
+                    0.9rem 0.75rem 1.4rem;
             }
 
 
@@ -1636,9 +1515,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 border-radius: 18px;
 
                 padding:
-                    1.3rem
-                    1.05rem
-                    1.35rem;
+                    1.3rem 1.05rem 1.35rem;
             }
 
 
@@ -1649,10 +1526,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 font-size: 0.64rem;
 
                 padding:
-                    0.4rem
-                    0.75rem
-                    0.4rem
-                    0.6rem;
+                    0.4rem 0.75rem 0.4rem 0.6rem;
             }
 
 
@@ -1702,9 +1576,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .brand-panel {
 
                 padding:
-                    1.1rem
-                    0.8rem
-                    1.2rem;
+                    1.1rem 0.8rem 1.2rem;
             }
 
 
@@ -1732,18 +1604,14 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             .login-panel {
 
                 padding:
-                    0.7rem
-                    0.6rem
-                    1rem;
+                    0.7rem 0.6rem 1rem;
             }
 
 
             .login-card {
 
                 padding:
-                    1.15rem
-                    0.9rem
-                    1.2rem;
+                    1.15rem 0.9rem 1.2rem;
 
                 border-radius: 16px;
             }
@@ -1770,8 +1638,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
            SHORT SCREEN
         ========================================================= */
 
-        @media screen and (max-height: 700px)
-                   and (min-width: 821px) {
+        @media screen and (max-height: 700px) and (min-width: 821px) {
 
             .brand-panel,
             .login-panel {
@@ -1825,8 +1692,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         :focus-visible {
 
             outline:
-                3px solid
-                rgba(16, 185, 129, 0.5);
+                3px solid rgba(16, 185, 129, 0.5);
 
             outline-offset: 3px;
         }
@@ -1849,7 +1715,6 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 animation: none !important;
             }
         }
-
     </style>
 
 </head>
@@ -1858,486 +1723,475 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <body>
 
 
-<div class="login-wrapper">
+    <div class="login-wrapper">
 
 
-    <!-- =========================================================
+        <!-- =========================================================
          LEFT BRAND PANEL
     ========================================================= -->
 
-    <section class="brand-panel">
+        <section class="brand-panel">
 
-        <div class="brand-inner">
+            <div class="brand-inner">
 
 
-            <!-- LOGO -->
+                <!-- LOGO -->
 
-            <div class="logo-ring">
+                <div class="logo-ring">
 
-                <img
-                    src="uploads/logo/logo.png"
-                    alt="GatewayLinen logo"
-                    onerror="
+                    <img
+                        src="uploads/logo/logo.png"
+                        alt="GatewayLinen logo"
+                        onerror="
                         this.style.display='none';
                         this.parentNode.innerHTML=
                         '<span style=&quot;font-size:2.5rem;color:#10b981;font-weight:700;font-family:Georgia,serif;&quot;>GL</span>';
-                    "
-                >
+                    ">
+
+                </div>
+
+
+                <!-- BRAND NAME -->
+
+                <h2 class="brand-name">
+                    Gateway<span>Linen</span>
+                </h2>
+
+
+                <div class="brand-line"></div>
+
+
+                <!-- TAGLINE -->
+
+                <div class="brand-tagline">
+                    Premium Linen Solutions
+                </div>
+
+
+                <!-- DESCRIPTION -->
+
+                <p class="brand-text">
+
+                    Welcome to GatewayLinen Administration. Manage products, inventory, orders, customers, and day-to-day business operations from one secure and professional workspace.
+
+                </p>
+
+
+                <!-- FEATURES -->
+
+                <div class="feature-grid">
+
+
+                    <div class="feature-item">
+
+                        <span class="feature-icon">◆</span>
+
+                        <span>
+                            Secure Administration
+                        </span>
+
+                    </div>
+
+
+                    <div class="feature-item">
+
+                        <span class="feature-icon">◇</span>
+
+                        <span>
+                            Product &amp; Catalogue Management
+                        </span>
+
+                    </div>
+
+
+                    <div class="feature-item">
+
+                        <span class="feature-icon">▣</span>
+
+                        <span>
+                            Inventory Management
+                        </span>
+
+                    </div>
+
+
+                    <div class="feature-item">
+
+                        <span class="feature-icon">●</span>
+
+                        <span>
+                            Order &amp; Customer Management
+                        </span>
+
+                    </div>
+
+
+                </div>
+
 
             </div>
 
-
-            <!-- BRAND NAME -->
-
-            <h2 class="brand-name">
-                Gateway<span>Linen</span>
-            </h2>
+        </section>
 
 
-            <div class="brand-line"></div>
-
-
-            <!-- TAGLINE -->
-
-            <div class="brand-tagline">
-                Premium Linen Solutions
-            </div>
-
-
-            <!-- DESCRIPTION -->
-
-            <p class="brand-text">
-
-                Welcome to GatewayLinen Administration. Manage products, inventory, orders, customers, and day-to-day business operations from one secure and professional workspace.
-
-            </p>
-
-
-            <!-- FEATURES -->
-
-            <div class="feature-grid">
-
-
-                <div class="feature-item">
-
-                    <span class="feature-icon">◆</span>
-
-                    <span>
-                        Secure Administration
-                    </span>
-
-                </div>
-
-
-                <div class="feature-item">
-
-                    <span class="feature-icon">◇</span>
-
-                    <span>
-                        Product &amp; Catalogue Management
-                    </span>
-
-                </div>
-
-
-                <div class="feature-item">
-
-                    <span class="feature-icon">▣</span>
-
-                    <span>
-                        Inventory Management
-                    </span>
-
-                </div>
-
-
-                <div class="feature-item">
-
-                    <span class="feature-icon">●</span>
-
-                    <span>
-                        Order &amp; Customer Management
-                    </span>
-
-                </div>
-
-
-            </div>
-
-
-        </div>
-
-    </section>
-
-
-    <!-- =========================================================
+        <!-- =========================================================
          RIGHT LOGIN PANEL
     ========================================================= -->
 
-    <section class="login-panel">
+        <section class="login-panel">
 
 
-        <div class="login-card">
+            <div class="login-card">
 
 
-            <!-- ADMINISTRATOR BADGE -->
+                <!-- ADMINISTRATOR BADGE -->
 
-            <div class="login-badge">
+                <div class="login-badge">
 
-                <span class="badge-dot"></span>
+                    <span class="badge-dot"></span>
 
-                Administrator Sign-In
+                    Administrator Sign-In
 
-            </div>
-
-
-            <!-- HEADING -->
-
-            <h1>
-                Welcome back
-            </h1>
+                </div>
 
 
-            <p class="login-sub">
+                <!-- HEADING -->
 
-                Sign in securely to access the GatewayLinen administration portal.
+                <h1>
+                    Welcome back
+                </h1>
 
-            </p>
+
+                <p class="login-sub">
+
+                    Sign in securely to access the GatewayLinen administration portal.
+
+                </p>
 
 
-            <!-- =====================================================
+                <!-- =====================================================
                  ERROR MESSAGE
             ===================================================== -->
 
-            <?php if ($error !== ""): ?>
+                <?php if ($error !== ""): ?>
 
-                <div class="error-box">
+                    <div class="error-box">
 
-                    <div class="error-icon">
-                        !
+                        <div class="error-icon">
+                            !
+                        </div>
+
+                        <div>
+                            <?= htmlspecialchars($error) ?>
+                        </div>
+
                     </div>
 
-                    <div>
-                        <?= htmlspecialchars($error) ?>
-                    </div>
-
-                </div>
-
-            <?php endif; ?>
+                <?php endif; ?>
 
 
-            <!-- =====================================================
+                <!-- =====================================================
                  LOGIN FORM
             ===================================================== -->
 
-            <form
-                id="loginForm"
-                method="POST"
-                action=""
-                autocomplete="on"
-            >
+                <form
+                    id="loginForm"
+                    method="POST"
+                    action=""
+                    autocomplete="on">
 
 
-                <!-- USERNAME -->
+                    <!-- USERNAME -->
 
-                <div class="form-group">
+                    <div class="form-group">
 
-                    <label
-                        class="form-label"
-                        for="username"
-                    >
-                        Username
-                    </label>
-
-
-                    <div class="input-wrap">
-
-                        <span class="input-icon">
-                            ●
-                        </span>
+                        <label
+                            class="form-label"
+                            for="username">
+                            Username
+                        </label>
 
 
-                        <input
-                            type="text"
-                            id="username"
-                            name="username"
-                            class="form-input"
-                            placeholder="Enter your username"
-                            value="<?= htmlspecialchars($username) ?>"
-                            autocomplete="username"
-                            required
-                            autofocus
-                        >
+                        <div class="input-wrap">
 
-                    </div>
-
-                </div>
+                            <span class="input-icon">
+                                ●
+                            </span>
 
 
-                <!-- PASSWORD -->
+                            <input
+                                type="text"
+                                id="username"
+                                name="username"
+                                class="form-input"
+                                placeholder="Enter your username"
+                                value="<?= htmlspecialchars($username) ?>"
+                                autocomplete="username"
+                                required
+                                autofocus>
 
-                <div class="form-group">
-
-                    <label
-                        class="form-label"
-                        for="password"
-                    >
-                        Password
-                    </label>
-
-
-                    <div class="input-wrap">
-
-                        <span class="input-icon">
-                            ◆
-                        </span>
-
-
-                        <input
-                            type="password"
-                            id="password"
-                            name="password"
-                            class="form-input"
-                            placeholder="Enter your password"
-                            autocomplete="current-password"
-                            required
-                        >
-
-
-                        <button
-                            type="button"
-                            class="password-toggle"
-                            id="togglePassword"
-                            aria-label="Show password"
-                            title="Show password"
-                        >
-
-                            <span
-                                class="eye-icon"
-                                id="eyeIcon"
-                            ></span>
-
-                        </button>
+                        </div>
 
                     </div>
 
-                </div>
+
+                    <!-- PASSWORD -->
+
+                    <div class="form-group">
+
+                        <label
+                            class="form-label"
+                            for="password">
+                            Password
+                        </label>
 
 
-                <!-- LOGIN BUTTON -->
+                        <div class="input-wrap">
 
-                <button
-                    type="submit"
-                    class="btn-login"
-                    id="loginButton"
-                >
-
-                    <span id="buttonText">
-                        Sign In to Administration
-                    </span>
-
-                    <span class="arrow-icon">
-                        →
-                    </span>
-
-                </button>
+                            <span class="input-icon">
+                                ◆
+                            </span>
 
 
-            </form>
+                            <input
+                                type="password"
+                                id="password"
+                                name="password"
+                                class="form-input"
+                                placeholder="Enter your password"
+                                autocomplete="current-password"
+                                required>
 
 
-            <!-- =====================================================
+                            <button
+                                type="button"
+                                class="password-toggle"
+                                id="togglePassword"
+                                aria-label="Show password"
+                                title="Show password">
+
+                                <span
+                                    class="eye-icon"
+                                    id="eyeIcon"></span>
+
+                            </button>
+
+                        </div>
+
+                    </div>
+
+
+                    <!-- LOGIN BUTTON -->
+
+                    <button
+                        type="submit"
+                        class="btn-login"
+                        id="loginButton">
+
+                        <span id="buttonText">
+                            Sign In to Administration
+                        </span>
+
+                        <span class="arrow-icon">
+                            →
+                        </span>
+
+                    </button>
+
+
+                </form>
+
+
+                <!-- =====================================================
                  SECURITY NOTE
             ===================================================== -->
 
-            <div class="security-note">
+                <div class="security-note">
 
-                <span class="security-icon">
-                    ◆
-                </span>
+                    <span class="security-icon">
+                        ◆
+                    </span>
 
-                <span>
-                    Secure administrator authentication
-                </span>
+                    <span>
+                        Secure administrator authentication
+                    </span>
 
-            </div>
+                </div>
 
 
-            <!-- =====================================================
+                <!-- =====================================================
                  FOOTER
             ===================================================== -->
 
-            <div class="login-footer">
+                <div class="login-footer">
 
-                <strong>
-                    GatewayLinen
-                </strong>
+                    <strong>
+                        GatewayLinen
+                    </strong>
 
-                <br>
+                    <br>
 
-                Premium Linen Solutions for the Hospitality Industry
+                    Premium Linen Solutions for the Hospitality Industry
 
-                <br>
+                    <br>
 
-                &copy;
-                <?= date("Y") ?>
-                GatewayLinen.
-                All rights reserved.
+                    &copy;
+                    <?= date("Y") ?>
+                    GatewayLinen.
+                    All rights reserved.
+
+                </div>
+
 
             </div>
 
-
-        </div>
-
-    </section>
+        </section>
 
 
-</div>
+    </div>
 
 
-<script>
-
-(function () {
-
-
-    /* =========================================================
-       PASSWORD SHOW / HIDE
-    ========================================================= */
-
-    const passwordInput =
-        document.getElementById("password");
-
-    const toggleBtn =
-        document.getElementById("togglePassword");
-
-    const eyeIcon =
-        document.getElementById("eyeIcon");
+    <script>
+        (function() {
 
 
-    toggleBtn.addEventListener(
-        "click",
-        function () {
+            /* =========================================================
+               PASSWORD SHOW / HIDE
+            ========================================================= */
 
-            if (
-                passwordInput.type === "password"
-            ) {
+            const passwordInput =
+                document.getElementById("password");
 
-                passwordInput.type = "text";
+            const toggleBtn =
+                document.getElementById("togglePassword");
 
-                eyeIcon.classList.add("hidden");
-
-                toggleBtn.setAttribute(
-                    "aria-label",
-                    "Hide password"
-                );
-
-                toggleBtn.setAttribute(
-                    "title",
-                    "Hide password"
-                );
-
-            } else {
-
-                passwordInput.type = "password";
-
-                eyeIcon.classList.remove("hidden");
-
-                toggleBtn.setAttribute(
-                    "aria-label",
-                    "Show password"
-                );
-
-                toggleBtn.setAttribute(
-                    "title",
-                    "Show password"
-                );
-
-            }
-
-        }
-    );
+            const eyeIcon =
+                document.getElementById("eyeIcon");
 
 
-    /* =========================================================
-       PREVENT DOUBLE SUBMISSION
-    ========================================================= */
+            toggleBtn.addEventListener(
+                "click",
+                function() {
 
-    const loginForm =
-        document.getElementById("loginForm");
+                    if (
+                        passwordInput.type === "password"
+                    ) {
 
-    const loginButton =
-        document.getElementById("loginButton");
+                        passwordInput.type = "text";
 
-    const buttonText =
-        document.getElementById("buttonText");
+                        eyeIcon.classList.add("hidden");
 
+                        toggleBtn.setAttribute(
+                            "aria-label",
+                            "Hide password"
+                        );
 
-    let submitted = false;
+                        toggleBtn.setAttribute(
+                            "title",
+                            "Hide password"
+                        );
 
+                    } else {
 
-    loginForm.addEventListener(
-        "submit",
-        function (event) {
+                        passwordInput.type = "password";
 
-            if (submitted) {
+                        eyeIcon.classList.remove("hidden");
 
-                event.preventDefault();
+                        toggleBtn.setAttribute(
+                            "aria-label",
+                            "Show password"
+                        );
 
-                return;
-            }
+                        toggleBtn.setAttribute(
+                            "title",
+                            "Show password"
+                        );
 
+                    }
 
-            submitted = true;
-
-
-            loginButton.classList.add(
-                "loading"
+                }
             );
 
 
-            buttonText.textContent =
-                "Signing in...";
+            /* =========================================================
+               PREVENT DOUBLE SUBMISSION
+            ========================================================= */
 
-        }
-    );
+            const loginForm =
+                document.getElementById("loginForm");
+
+            const loginButton =
+                document.getElementById("loginButton");
+
+            const buttonText =
+                document.getElementById("buttonText");
 
 
-    /* =========================================================
-       ENTER KEY TO SUBMIT (GLOBAL)
-    ========================================================= */
+            let submitted = false;
 
-    document.addEventListener(
-        "keydown",
-        function (e) {
 
-            if (e.key === "Enter") {
+            loginForm.addEventListener(
+                "submit",
+                function(event) {
 
-                const active = document.activeElement;
+                    if (submitted) {
 
-                if (
-                    active &&
-                    active.tagName !== "BUTTON"
-                ) {
+                        event.preventDefault();
 
-                    if (loginForm) {
+                        return;
+                    }
 
-                        if (loginForm.requestSubmit) {
-                            loginForm.requestSubmit();
+
+                    submitted = true;
+
+
+                    loginButton.classList.add(
+                        "loading"
+                    );
+
+
+                    buttonText.textContent =
+                        "Signing in...";
+
+                }
+            );
+
+
+            /* =========================================================
+               ENTER KEY TO SUBMIT (GLOBAL)
+            ========================================================= */
+
+            document.addEventListener(
+                "keydown",
+                function(e) {
+
+                    if (e.key === "Enter") {
+
+                        const active = document.activeElement;
+
+                        if (
+                            active &&
+                            active.tagName !== "BUTTON"
+                        ) {
+
+                            if (loginForm) {
+
+                                if (loginForm.requestSubmit) {
+                                    loginForm.requestSubmit();
+                                }
+
+                            }
+
                         }
 
                     }
 
                 }
-
-            }
-
-        }
-    );
+            );
 
 
-})();
-
-</script>
+        })();
+    </script>
 
 
 </body>

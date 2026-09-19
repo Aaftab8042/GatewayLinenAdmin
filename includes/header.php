@@ -34,12 +34,12 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 | C:\wamp64\www\GatewayLinen\GatewayLinenadmin
 |
 | Therefore the correct browser base URL is:
-| /GatewayLinen/GatewayLinenadmin
+| /GatewayLinen/GatewayLinenAdmin-main
 |--------------------------------------------------------------------------
 */
 
 if (!defined('GATEWAY_BASE')) {
-    define('GATEWAY_BASE', '/GatewayLinen/GatewayLinenadmin');
+    define('GATEWAY_BASE', '/GatewayLinen/GatewayLinenAdmin-main');
 }
 
 
@@ -98,18 +98,15 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
+        content="width=device-width, initial-scale=1.0">
 
     <meta
         name="theme-color"
-        content="#0a1119"
-    >
+        content="#0a1119">
 
     <meta
         name="mobile-web-app-capable"
-        content="yes"
-    >
+        content="yes">
 
     <title>
         <?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?>
@@ -117,7 +114,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
 
     <style>
-
         /* =========================================================
            GLOBAL RESET
         ========================================================== */
@@ -297,8 +293,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                 1px solid var(--border);
 
             box-shadow:
-                0 1px 4px
-                rgba(0, 0, 0, 0.3);
+                0 1px 4px rgba(0, 0, 0, 0.3);
         }
 
 
@@ -495,11 +490,9 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             border-radius: 50%;
 
             background:
-                linear-gradient(
-                    135deg,
+                linear-gradient(135deg,
                     #2a2310,
-                    #4a3c16
-                );
+                    #4a3c16);
 
             border:
                 1px solid rgba(240, 180, 41, 0.3);
@@ -512,8 +505,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             font-weight: 800;
 
             box-shadow:
-                0 0 0 2px
-                rgba(240, 180, 41, 0.08);
+                0 0 0 2px rgba(240, 180, 41, 0.08);
         }
 
 
@@ -600,12 +592,10 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             border-radius: 18px;
 
             background:
-                linear-gradient(
-                    135deg,
+                linear-gradient(135deg,
                     #0d1620 0%,
                     #142430 55%,
-                    #0d3a35 100%
-                );
+                    #0d3a35 100%);
 
             border:
                 1px solid var(--border);
@@ -614,8 +604,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                 var(--text-hi);
 
             box-shadow:
-                0 14px 35px
-                rgba(0, 0, 0, 0.3);
+                0 14px 35px rgba(0, 0, 0, 0.3);
         }
 
 
@@ -713,8 +702,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             border-radius: 15px;
 
             box-shadow:
-                0 4px 18px
-                rgba(0, 0, 0, 0.25);
+                0 4px 18px rgba(0, 0, 0, 0.25);
 
             transition:
                 transform 0.2s ease,
@@ -732,8 +720,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                 #26384a;
 
             box-shadow:
-                0 10px 28px
-                rgba(0, 0, 0, 0.4);
+                0 10px 28px rgba(0, 0, 0, 0.4);
         }
 
 
@@ -883,8 +870,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                 var(--bg-hover);
 
             box-shadow:
-                0 9px 25px
-                rgba(0, 0, 0, 0.4);
+                0 9px 25px rgba(0, 0, 0, 0.4);
         }
 
 
@@ -1457,7 +1443,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                 color: #000000 !important;
             }
         }
-
     </style>
 
 </head>
@@ -1466,88 +1451,71 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 <body>
 
 
-<!-- =============================================================
+    <!-- =============================================================
      COMMON TOP HEADER - DARK
 ============================================================== -->
 
-<header class="topbar">
+    <header class="topbar">
 
 
-    <!-- =========================================================
+        <!-- =========================================================
          LEFT SIDE
     ========================================================== -->
 
-    <div class="topbar-left">
+        <div class="topbar-left">
 
 
-        <!-- MOBILE MENU BUTTON -->
+            <!-- MOBILE MENU BUTTON -->
 
-        <button
-            type="button"
-            class="mobile-menu-btn"
-            onclick="openMobileMenu()"
-            aria-label="Open navigation menu"
-            title="Open menu"
-        >
-            ☰
-        </button>
-
-
-        <!-- PAGE INFORMATION -->
-
-        <div>
-
-            <div class="page-title">
-
-                <?= htmlspecialchars(
-                    $pageTitle,
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>
-
-            </div>
+            <button
+                type="button"
+                class="mobile-menu-btn"
+                onclick="openMobileMenu()"
+                aria-label="Open navigation menu"
+                title="Open menu">
+                ☰
+            </button>
 
 
-            <div class="page-subtitle">
+            <!-- PAGE INFORMATION -->
 
-                GatewayLinen Administration
+            <div>
+
+                <div class="page-title">
+
+                    <?= htmlspecialchars(
+                        $pageTitle,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+
+                </div>
+
+
+                <div class="page-subtitle">
+
+                    GatewayLinen Administration
+
+                </div>
 
             </div>
 
         </div>
 
-    </div>
 
-
-    <!-- =========================================================
+        <!-- =========================================================
          RIGHT SIDE - ADMIN PROFILE
     ========================================================== -->
 
-    <div class="profile">
+        <div class="profile">
 
 
-        <!-- AVATAR -->
+            <!-- AVATAR -->
 
-        <div class="avatar">
-
-            <?= htmlspecialchars(
-                $firstLetter,
-                ENT_QUOTES,
-                'UTF-8'
-            ) ?>
-
-        </div>
-
-
-        <!-- PROFILE INFO -->
-
-        <div class="profile-info">
-
-
-            <div class="profile-name">
+            <div class="avatar">
 
                 <?= htmlspecialchars(
-                    $adminName,
+                    $firstLetter,
                     ENT_QUOTES,
                     'UTF-8'
                 ) ?>
@@ -1555,16 +1523,32 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             </div>
 
 
-            <div class="profile-role">
+            <!-- PROFILE INFO -->
 
-                Administrator
+            <div class="profile-info">
+
+
+                <div class="profile-name">
+
+                    <?= htmlspecialchars(
+                        $adminName,
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+
+                </div>
+
+
+                <div class="profile-role">
+
+                    Administrator
+
+                </div>
+
 
             </div>
 
-
         </div>
 
-    </div>
 
-
-</header>
+    </header>
