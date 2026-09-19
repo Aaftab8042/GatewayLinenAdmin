@@ -6,9 +6,16 @@ require_once __DIR__ . '/config/database.php';
 
 /*
 |--------------------------------------------------------------------------
-| GatewayLinen Administrator Login
+| GatewayLinen Login
 |--------------------------------------------------------------------------
-| Responsive English administration login page (DARK THEME).
+| Login table: dbo.Users
+| Columns:
+| UserId
+| Username
+| FullName
+| Email
+| RoleId
+| PasswordHash
 |--------------------------------------------------------------------------
 */
 
@@ -42,21 +49,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         /*
         |--------------------------------------------------------------------------
-        | FIND ACTIVE ADMINISTRATOR
+        | FIND USER FROM dbo.Users
+        |--------------------------------------------------------------------------
+        | RoleId = 1 means administrator according to your database.
         |--------------------------------------------------------------------------
         */
 
         $sql = "
             SELECT
-                AdminID,
-                FullName,
+                UserId,
                 Username,
-                PasswordHash,
+                FullName,
                 Email,
-                Status
-            FROM dbo.admins
+                RoleId,
+                PasswordHash
+            FROM dbo.Users
             WHERE Username = ?
-              AND Status = 1
+              AND RoleId = 1
         ";
 
         $stmt = sqlsrv_query(
@@ -67,7 +76,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 
         /*
         |--------------------------------------------------------------------------
-        | DATABASE ERROR
+        | DATABASE QUERY ERROR
         |--------------------------------------------------------------------------
         */
 
@@ -78,92 +87,89 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 print_r(sqlsrv_errors(), true)
             );
 
-            $error = "Unable to process your sign-in request. Please try again.";
+            $error = "Database error. Please try again.";
 
         } else {
 
             /*
             |--------------------------------------------------------------------------
-            | GET ADMINISTRATOR
+            | FETCH USER RECORD
             |--------------------------------------------------------------------------
             */
 
-            $admin = sqlsrv_fetch_array(
+            $user = sqlsrv_fetch_array(
                 $stmt,
                 SQLSRV_FETCH_ASSOC
             );
 
-            /*
-            |--------------------------------------------------------------------------
-            | PASSWORD VERIFICATION
-            |--------------------------------------------------------------------------
-            */
+            if (!$user) {
 
-            if (
-                $admin &&
-                password_verify(
-                    $password,
-                    $admin["PasswordHash"]
-                )
-            ) {
+                $error = "Incorrect username or password.";
+
+            } else {
 
                 /*
                 |--------------------------------------------------------------------------
-                | REGENERATE SESSION
+                | VERIFY PASSWORD
                 |--------------------------------------------------------------------------
                 */
 
-                session_regenerate_id(true);
+                $passwordHash = trim($user["PasswordHash"] ?? "");
 
-                /*
-                |--------------------------------------------------------------------------
-                | ADMIN SESSION
-                |--------------------------------------------------------------------------
-                */
+                if (
+                    $passwordHash !== "" &&
+                    password_verify($password, $passwordHash)
+                ) {
 
-                $_SESSION["admin_id"] =
-                    (int)$admin["AdminID"];
+                    /*
+                    |--------------------------------------------------------------------------
+                    | REGENERATE SESSION
+                    |--------------------------------------------------------------------------
+                    */
 
-                $_SESSION["admin_name"] =
-                    $admin["FullName"];
+                    session_regenerate_id(true);
 
-                $_SESSION["admin_username"] =
-                    $admin["Username"];
+                    /*
+                    |--------------------------------------------------------------------------
+                    | ADMIN SESSION DATA
+                    |--------------------------------------------------------------------------
+                    */
 
-                $_SESSION["admin_email"] =
-                    $admin["Email"] ?? "";
+                    $_SESSION["admin_id"] =
+                        (int) $user["UserId"];
 
-                /*
-                |--------------------------------------------------------------------------
-                | LOGIN DATE & TIME
-                |--------------------------------------------------------------------------
-                */
+                    $_SESSION["admin_name"] =
+                        $user["FullName"];
 
-                $_SESSION["login_date"] =
-                    date("d-m-Y");
+                    $_SESSION["admin_username"] =
+                        $user["Username"];
 
-                $_SESSION["login_time"] =
-                    date("H:i:s");
+                    $_SESSION["admin_email"] =
+                        $user["Email"] ?? "";
 
-                /*
-                |--------------------------------------------------------------------------
-                | LOGIN SUCCESS
-                |--------------------------------------------------------------------------
-                */
+                    $_SESSION["admin_role_id"] =
+                        (int) $user["RoleId"];
 
-                header("Location: dashboard.php");
-                exit;
-            }
+                    $_SESSION["login_date"] =
+                        date("d-m-Y");
 
-            /*
-            |--------------------------------------------------------------------------
-            | INVALID LOGIN
-            |--------------------------------------------------------------------------
-            */
+                    $_SESSION["login_time"] =
+                        date("H:i:s");
 
-            else {
+                    /*
+                    |--------------------------------------------------------------------------
+                    | LOGIN SUCCESS
+                    |--------------------------------------------------------------------------
+                    */
 
-                $error = "The username or password you entered is incorrect.";
+                    header("Location: dashboard.php");
+                    exit;
+
+                } else {
+
+                    $error = "Incorrect username or password.";
+
+                }
             }
 
             sqlsrv_free_stmt($stmt);

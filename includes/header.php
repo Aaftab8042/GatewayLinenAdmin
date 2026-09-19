@@ -13,6 +13,7 @@
 |--------------------------------------------------------------------------
 */
 
+
 /*
 |--------------------------------------------------------------------------
 | SESSION
@@ -28,10 +29,17 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 |--------------------------------------------------------------------------
 | BASE URL
 |--------------------------------------------------------------------------
+| IMPORTANT:
+| Actual project structure:
+| C:\wamp64\www\GatewayLinen\GatewayLinenadmin
+|
+| Therefore the correct browser base URL is:
+| /GatewayLinen/GatewayLinenadmin
+|--------------------------------------------------------------------------
 */
 
 if (!defined('GATEWAY_BASE')) {
-    define('GATEWAY_BASE', '/GatewayLinenadmin');
+    define('GATEWAY_BASE', '/GatewayLinen/GatewayLinenadmin');
 }
 
 
@@ -130,6 +138,7 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
         :root {
 
             /* Dark backgrounds */
+
             --bg-page: #0a1119;
             --bg-card: #111b26;
             --bg-card-alt: #0f1823;
@@ -137,16 +146,22 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             --bg-hover: #16222e;
             --bg-input: #0d1620;
 
+
             /* Borders */
+
             --border: #1e2d3d;
             --border-soft: #182636;
 
+
             /* Text */
+
             --text-hi: #f0f4f8;
             --text-body: #a8b8c8;
             --text-mute: #5f7488;
 
+
             /* Accents */
+
             --green: #10b981;
             --green-dark: #059669;
             --green-soft: rgba(16, 185, 129, 0.12);
@@ -157,7 +172,9 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             --navy: #071b35;
             --blue: #155f8f;
 
+
             /* Layout */
+
             --sidebar-width: 255px;
             --topbar-height: 68px;
         }
@@ -430,20 +447,30 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
             max-width: 280px;
 
-            padding: 5px 12px 5px 5px;
+            padding:
+                5px 12px 5px 5px;
 
-            border: 1px solid var(--border);
+            border:
+                1px solid var(--border);
 
             border-radius: 30px;
 
-            background: var(--bg-input);
+            background:
+                var(--bg-input);
 
-            transition: border-color .18s ease, background .18s ease;
+            transition:
+                border-color .18s ease,
+                background .18s ease;
         }
 
+
         .profile:hover {
-            border-color: #26384a;
-            background: var(--bg-hover);
+
+            border-color:
+                #26384a;
+
+            background:
+                var(--bg-hover);
         }
 
 
@@ -485,7 +512,8 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             font-weight: 800;
 
             box-shadow:
-                0 0 0 2px rgba(240, 180, 41, 0.08);
+                0 0 0 2px
+                rgba(240, 180, 41, 0.08);
         }
 
 
@@ -494,7 +522,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
         ========================================================== */
 
         .profile-info {
-
             min-width: 0;
         }
 
@@ -552,12 +579,13 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             padding:
                 30px 32px 40px;
 
-            background: var(--bg-page);
+            background:
+                var(--bg-page);
         }
 
 
         /* =========================================================
-           WELCOME - DARK (kept for dashboard use)
+           WELCOME - DARK
         ========================================================== */
 
         .welcome {
@@ -579,7 +607,8 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                     #0d3a35 100%
                 );
 
-            border: 1px solid var(--border);
+            border:
+                1px solid var(--border);
 
             color:
                 var(--text-hi);
@@ -699,7 +728,8 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             transform:
                 translateY(-2px);
 
-            border-color: #26384a;
+            border-color:
+                #26384a;
 
             box-shadow:
                 0 10px 28px
@@ -921,22 +951,36 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
         ========================================================== */
 
         ::-webkit-scrollbar {
+
             width: 10px;
+
             height: 10px;
         }
 
+
         ::-webkit-scrollbar-track {
-            background: #0a1119;
+
+            background:
+                #0a1119;
         }
+
 
         ::-webkit-scrollbar-thumb {
-            background: #26384a;
+
+            background:
+                #26384a;
+
             border-radius: 6px;
-            border: 2px solid #0a1119;
+
+            border:
+                2px solid #0a1119;
         }
 
+
         ::-webkit-scrollbar-thumb:hover {
-            background: #35495c;
+
+            background:
+                #35495c;
         }
 
 
@@ -972,7 +1016,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
                 max-width: 150px;
             }
-
         }
 
 
@@ -994,7 +1037,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
                 grid-template-columns:
                     repeat(2, minmax(0, 1fr));
             }
-
         }
 
 
@@ -1137,7 +1179,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
                 padding: 16px;
             }
-
         }
 
 
@@ -1194,7 +1235,8 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
                 gap: 7px;
 
-                padding: 4px 8px 4px 4px;
+                padding:
+                    4px 8px 4px 4px;
             }
 
 
@@ -1323,7 +1365,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
                 margin-bottom: 0;
             }
-
         }
 
 
@@ -1380,7 +1421,6 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
 
                 font-size: 11px;
             }
-
         }
 
 
@@ -1393,19 +1433,27 @@ $pageTitle = $pageTitle ?? 'GatewayLinen | Administration';
             .topbar,
             .mobile-menu-btn,
             .profile {
+
                 display: none !important;
             }
 
+
             .main {
+
                 margin-left: 0 !important;
             }
 
+
             .content {
+
                 padding: 0 !important;
             }
 
+
             body {
+
                 background: #ffffff !important;
+
                 color: #000000 !important;
             }
         }
